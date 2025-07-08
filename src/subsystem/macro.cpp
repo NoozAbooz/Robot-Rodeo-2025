@@ -12,7 +12,7 @@ void liftControl(double target, int minSpeed) {
 
 	double timer = 0;
 	arm.move(20);
-	while (timer < 450) { 
+	while (timer < 400) { 
     	error = target - arm.get_position() / 100.0;
 
 		if (minSpeed != 0) { // force speed

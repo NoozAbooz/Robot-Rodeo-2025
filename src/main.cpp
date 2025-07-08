@@ -6,8 +6,8 @@ void liftBucket() {
 
 	// drive closer into hopper
 	claw.move_voltage(-3000);
-	liftControl(20);
-	pros::delay(100);
+	liftControl(50);
+	pros::delay(200);
 
 	leftDrive.move_voltage(2000);
 	rightDrive.move_voltage(2000);
@@ -17,8 +17,8 @@ void liftBucket() {
 	pros::delay(1000); // wait for bucket to move
 
 	// drive away
-	leftDrive.move_voltage(-5000);
-	rightDrive.move_voltage(-5000);
+	leftDrive.move_voltage(-2000);
+	rightDrive.move_voltage(-2000);
 
 	//bucket down (b)
 	bucket.move_absolute(-1200, 30);
@@ -28,12 +28,14 @@ void liftBucket() {
 	bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
 
 	// arm down
-	liftControl(-20);
+	arm.move_voltage(-8000);
+	pros::delay(200);
 
 	// open claw
 	claw.move_voltage(12000);
 	pros::delay(200);
 	claw.brake();
+	arm.move_voltage(0);
 
 	bucketLock = false;
 }
@@ -45,7 +47,7 @@ void liftArm() {
 	// close claw and move arm up
 	claw.move_voltage(-3000);
 	liftControl(50);
-	pros::delay(300);
+	pros::delay(200);
 
 	// open claw
 	claw.move_voltage(8000);
@@ -53,16 +55,18 @@ void liftArm() {
 
 	// close claw
 	claw.move_voltage(-8000);
+	pros::delay(50);
 
 	// lift down
 	arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-	liftControl(-20, 127);
+	arm.move_voltage(-8000);
 	pros::delay(200);
 
 	// open claw
-	claw.move_voltage(8000);
+	claw.move_voltage(12000);
 	pros::delay(200);
 	claw.brake();
+	arm.move_voltage(0);
 
 	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 	armLock = false;
@@ -77,7 +81,7 @@ void opcontrol() {
 	bucket.tare_position();
 
 	//bucket.set_encoder_units_all(pros::E_MOTOR_ENCODER_DEGREES);
-	arm.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
+	arm.set_encoder_units_all(pros::E_MOTOR_ENCODER_DEGREES);
 
 	while (true) { // Main continuous loop
 		/* Drive */
