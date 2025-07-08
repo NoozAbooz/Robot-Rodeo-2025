@@ -1,45 +1,122 @@
 #include "main.h"
 
-/**
- * Runs the operator control code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled.
- *
- * If the robot is disabled or communications is lost, the
- * operator control task will be stopped. Re-enabling the robot will not resume 
- * the task from where it left off.
- */
+bool bucketLock = false;
+void liftBucket() {
+	bucketLock = true;
+
+	// drive closer into hopper
+	claw.move_voltage(-3000);
+	liftControl(20);
+	pros::delay(100);
+
+	leftDrive.move_voltage(2000);
+	rightDrive.move_voltage(2000);
+
+	// flip (nb)
+	bucket.move_absolute(800, 90);
+	pros::delay(1000); // wait for bucket to move
+
+	// drive away
+	leftDrive.move_voltage(-5000);
+	rightDrive.move_voltage(-5000);
+
+	//bucket down (b)
+	bucket.move_absolute(-1200, 30);
+	pros::delay(2000);
+	bucket.move(0);
+	bucket.brake();
+	bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
+
+	// arm down
+	liftControl(-20);
+
+	// open claw
+	claw.move_voltage(12000);
+	pros::delay(200);
+	claw.brake();
+
+	bucketLock = false;
+}
+
+bool armLock = false;
+void liftArm() {
+	armLock = true;
+
+	// close claw and move arm up
+	claw.move_voltage(-3000);
+	liftControl(50);
+	pros::delay(300);
+
+	// open claw
+	claw.move_voltage(8000);
+	pros::delay(500);
+
+	// close claw
+	claw.move_voltage(-8000);
+
+	// lift down
+	arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+	liftControl(-20, 127);
+	pros::delay(200);
+
+	// open claw
+	claw.move_voltage(8000);
+	pros::delay(200);
+	claw.brake();
+
+	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+	armLock = false;
+}
+
 void opcontrol() {
-	field_status = "opcontrol";
-	pros::Task([] { // run only in competition
-		if (field_status == "competition") {
-			Gif* gif = new Gif("/usd/nokotan.gif", rd_view_obj(gifview));
-			rd_view_focus(gifview);
-			console.println("Launching gif...");
-		}
-	});
-	antiJamToggle = false;
-	colourSortToggle = false;
-	wallStake.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+	claw.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+	bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
+
+	arm.tare_position();
+	bucket.tare_position();
+
+	//bucket.set_encoder_units_all(pros::E_MOTOR_ENCODER_DEGREES);
+	arm.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
 
 	while (true) { // Main continuous loop
 		/* Drive */
-		ks::arcadeDrive(0, 0, 1.2);
+		ks::arcadeDrive(0, 0, 1);
 
 		/* Subsystem Listeners */
-		refreshIntake();
-		refreshClamp();
-		refreshDoinker();
-		refreshWallstakes();
-
-		// Report temperature telemetry 😭
-		double drivetrainTemps = ks::vector_average(leftDrive.get_temperature_all());
-		double theta = fmod(chassis.getPose().theta, 360); // wrap to [0, 360) for user view
-    	if (theta < 0) {
-       		theta += 360;
+		// claw
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) { // open claw
+			claw.move_voltage(8000);
+		} else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) { // close
+			claw.move_voltage(-4000);
+		} else if (armLock == false) {
+			claw.brake();
 		}
-		//controller.print(0, 0, "DT%.0lf|INT%.0lf|%.0lf  ", drivetrainTemps, intake.get_temperature(0), theta);
-		controller.print(0, 0, "X:%.0lf Y:%.0lf T:%.0lf   ", chassis.getPose().x, chassis.getPose().y, theta);
 
-		pros::delay(10); // Delay to save resources on brain
+		// claw arm
+		if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1) && controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2) && armLock == false) {
+			pros::Task([] {
+				liftArm();
+    		});
+		} else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+			arm.move_voltage(5000);
+		} else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+			arm.move_voltage(-5000);
+		} else if (armLock == false) {
+			arm.brake();
+		}
+
+		// bucket
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN) 
+			&& controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)
+			&& !bucketLock) {
+				pros::Task([] {
+					liftBucket();
+    			});
+		}
+
+		double drivetrainTemps = ks::vector_average(leftDrive.get_temperature_all());
+		controller.print(0, 0, "DT%.0lf|L%.0lf|R%.0lf     ", drivetrainTemps, bucket.get_temperature(0), bucket.get_temperature(1));
+		pros::delay(20);
 	}
 }

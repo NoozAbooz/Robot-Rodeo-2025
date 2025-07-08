@@ -1,16 +1,6 @@
 #pragma once
 
-// 3rd party libraries
-#include "lemlib/api.hpp"
-#include "gif-pros/gifclass.hpp"
-#include "robodash/api.h"
-#include "liblvgl/lvgl.h"
-
-extern rd::Console console;
-extern rd_view_t *gifview;
-extern rd_view_t *allianceview;
-extern rd::Selector gui_selector;
-void rdconfig_init();
+#include "main.h"
 
 extern std::string alliance;
 extern std::string field_status;
@@ -21,7 +11,8 @@ extern bool antiJamToggle;
 
 extern void competitionTelemtryRefresh();
 extern bool isResetting;
-extern int wallstakeStates[];
+
+extern bool bucketLock;
 
 /* Functions */
 // DT
@@ -33,13 +24,9 @@ void refreshDoinker();
 void refreshWallstakes();
 void resetWallstakes();
 
-void liftControl(double target);
+void liftControl(double target, int minSpeed = 0);
 
 void initializeColourSort();
 void driverSkillsMacro();
 
 /* Autons */
-void sawp();
-void half_sawp();
-void ring_rush();
-void skills();
