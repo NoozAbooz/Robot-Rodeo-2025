@@ -1,12 +1,15 @@
 #include "main.h"
 
 bool bucketLock = false;
+bool armLock = false;
+
 void liftBucket() {
 	bucketLock = true;
+	armLock = true;
 
 	// drive closer into hopper
 	claw.move_voltage(-3000);
-	liftControl(50);
+	liftControl(20);
 	pros::delay(200);
 
 	leftDrive.move_voltage(2000);
@@ -19,15 +22,18 @@ void liftBucket() {
 	// drive away
 	leftDrive.move_voltage(-2000);
 	rightDrive.move_voltage(-2000);
+	pros::delay(100);
 
 	//bucket down (b)
-	bucket.move_absolute(-1200, 30);
-	pros::delay(2000);
-	bucket.move(0);
-	bucket.brake();
-	bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
+	pros::Task([] {
+		bucket.move_absolute(-1200, 30);
+		pros::delay(2000);
+		bucket.move(0);
+		bucket.brake();
+		bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
+    });
 
-	// arm down
+	arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 	arm.move_voltage(-8000);
 	pros::delay(200);
 
@@ -37,21 +43,23 @@ void liftBucket() {
 	claw.brake();
 	arm.move_voltage(0);
 
+	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+
 	bucketLock = false;
+	armLock = false;
 }
 
-bool armLock = false;
 void liftArm() {
 	armLock = true;
 
 	// close claw and move arm up
 	claw.move_voltage(-3000);
 	liftControl(50);
-	pros::delay(200);
+	pros::delay(150);
 
 	// open claw
-	claw.move_voltage(8000);
-	pros::delay(500);
+	claw.move_voltage(6000);
+	pros::delay(400);
 
 	// close claw
 	claw.move_voltage(-8000);
