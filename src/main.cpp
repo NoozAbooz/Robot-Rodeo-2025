@@ -1,120 +1,94 @@
 #include "main.h"
+#include <numeric> //std::accumulate
 
+pros::Controller controller(pros::E_CONTROLLER_MASTER);
+pros::MotorGroup leftDrive({12, 3});
+pros::MotorGroup rightDrive({-20, -2});
+
+pros::MotorGroup claw({15}); // opens when fwd
+pros::MotorGroup arm({11});
+
+pros::MotorGroup bucket({13, -18});
+
+void initialize() {}
+void disabled() {}
+void autonomous() {}
+
+double vector_average(const std::vector<double>& v) {
+	return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
+}
+
+void arcadeDrive(double turnScale) {
+    double power = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+    double rawTurn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+
+    // move motors based on direction (eg move left more when turn is positive)
+    leftDrive.move_voltage((power + rawTurn * turnScale) * (12000.0 / 127));
+    rightDrive.move_voltage((power - rawTurn * turnScale) * (12000.0 / 127));
+}
+
+void PIDMove(pros::MotorGroup& mtr, int target, double velocity, int timeout) {
+	mtr.move_absolute(target, velocity);
+	int timer = 0;
+
+	while (abs((int)mtr.get_position() - target) > 80 || timer < timeout) {
+		timer += 10;
+		pros::delay(10);
+	}
+	
+	mtr.brake();
+	mtr.move_voltage(0);
+}
+
+/* Macros */
 bool bucketLock = false;
-bool armLock = false;
-
 void liftBucket() {
 	bucketLock = true;
-	armLock = true;
-
-	// drive closer into hopper
-	claw.move_voltage(-3000);
-	liftControl(20);
-	pros::delay(200);
-
-	leftDrive.move_voltage(3000);
-	rightDrive.move_voltage(3000);
-
-	// flip (nb)
-	bucket.move_absolute(800, 127);
-	pros::delay(1500); // wait for bucket to move
-
-	// drive away
-	leftDrive.move_voltage(-3000);
-	rightDrive.move_voltage(-3000);
-	pros::delay(100);
-
-	//bucket down (b)
-	pros::Task([] {
-		bucket.move_absolute(-1200, 30);
-		pros::delay(2000);
-		bucket.move(0);
-		bucket.brake();
-		bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
-    });
-
-	arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-	arm.move_voltage(-8000);
-	pros::delay(200);
-
-	// open claw
-	claw.move_voltage(12000);
-	pros::delay(200);
-	claw.brake();
-	arm.move_voltage(0);
-
-	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-
+	bucket.move_absolute(800, 90);
+	pros::delay(1000); // wait for bucket to move
+	bucket.move_absolute(-1200, 50);
+	pros::delay(2000);
+	bucket.move(0);
 	bucketLock = false;
-	armLock = false;
 }
 
-void liftArm() {
-	armLock = true;
-
-	// close claw and move arm up
-	claw.move_voltage(-3000);
-	liftControl(50);
-	pros::delay(150);
-
-	// open claw
-	claw.move_voltage(6000);
-	pros::delay(400);
-
-	// close claw
-	claw.move_voltage(-2500);
-	pros::delay(80);
-
-	// lift down
-	arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-	arm.move_voltage(-8000);
-	pros::delay(200);
-
-	// open claw
-	claw.move_voltage(12000);
-	pros::delay(200);
-	claw.brake();
-	arm.move_voltage(0);
-
-	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-	armLock = false;
-}
-
+/**
+ * Runs the operator control code. This function will be started in its own task
+ * with the default priority and stack size whenever the robot is enabled via
+ * the Field Management System or the VEX Competition Switch in the operator
+ * control mode.
+ *
+ * If no competition control is connected, this function will run immediately
+ * following initialize().
+ *
+ * If the robot is disabled or communications is lost, the
+ * operator control task will be stopped. Re-enabling the robot will restart the
+ * task, not resume it from where it left off.
+ */
 void opcontrol() {
 	claw.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 	arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 	bucket.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
 
-	arm.tare_position();
-	bucket.tare_position();
+	while (true) {
+		// Arcade control scheme
+		arcadeDrive(1);
 
-	//bucket.set_encoder_units_all(pros::E_MOTOR_ENCODER_DEGREES);
-	arm.set_encoder_units_all(pros::E_MOTOR_ENCODER_DEGREES);
-
-	while (true) { // Main continuous loop
-		/* Drive */
-		ks::arcadeDrive(0, 0, 1);
-
-		/* Subsystem Listeners */
 		// claw
 		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) { // open claw
-			claw.move_voltage(8000);
+			claw.move_voltage(6000);
 		} else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) { // close
-			claw.move_voltage(-4000);
-		} else if (armLock == false) {
+			claw.move_voltage(-6000);
+		} else {
 			claw.brake();
 		}
 
 		// claw arm
-		if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1) && controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2) && armLock == false) {
-			pros::Task([] {
-				liftArm();
-    		});
-		} else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-			arm.move_voltage(5000);
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+			arm.move_voltage(4000);
 		} else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-			arm.move_voltage(-5000);
-		} else if (armLock == false) {
+			arm.move_voltage(-4000);
+		} else {
 			arm.brake();
 		}
 
@@ -127,8 +101,8 @@ void opcontrol() {
     			});
 		}
 
-		double drivetrainTemps = ks::vector_average(leftDrive.get_temperature_all());
-		controller.print(0, 0, "DT%.0lf|L%.0lf|R%.0lf     ", drivetrainTemps, bucket.get_temperature(0), bucket.get_temperature(1));
+		double drivetrainTemps = vector_average(leftDrive.get_temperature_all());
+		controller.print(0, 0, "DT%.0lf | L%.0lf | R%.0lf  ", drivetrainTemps, bucket.get_temperature(0), bucket.get_temperature(1));
 		pros::delay(20);
 	}
 }
