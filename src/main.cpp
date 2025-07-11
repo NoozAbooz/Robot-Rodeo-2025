@@ -12,16 +12,16 @@ void liftBucket() {
 	liftControl(20);
 	pros::delay(200);
 
-	leftDrive.move_voltage(2000);
-	rightDrive.move_voltage(2000);
+	leftDrive.move_voltage(3000);
+	rightDrive.move_voltage(3000);
 
 	// flip (nb)
-	bucket.move_absolute(800, 90);
-	pros::delay(1000); // wait for bucket to move
+	bucket.move_absolute(800, 127);
+	pros::delay(1500); // wait for bucket to move
 
 	// drive away
-	leftDrive.move_voltage(-2000);
-	rightDrive.move_voltage(-2000);
+	leftDrive.move_voltage(-3000);
+	rightDrive.move_voltage(-3000);
 	pros::delay(100);
 
 	//bucket down (b)
@@ -62,8 +62,8 @@ void liftArm() {
 	pros::delay(400);
 
 	// close claw
-	claw.move_voltage(-8000);
-	pros::delay(50);
+	claw.move_voltage(-2500);
+	pros::delay(80);
 
 	// lift down
 	arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
